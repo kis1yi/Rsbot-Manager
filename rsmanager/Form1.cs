@@ -18,7 +18,7 @@ namespace RSBotManager
     {
         private string rsbotPath = string.Empty;
         private List<BotInstance> bots = new List<BotInstance>();
-        private List<Profile> savedProfiles = new List<Profile>(); // Kaydedilen profiller
+        private ProfileData profileData = new ProfileData();
         private string settingsFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
         private string botsStateFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bots_state.json");
         private string profilesFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "profiles.json");
@@ -28,9 +28,12 @@ namespace RSBotManager
         private ToolStripStatusLabel botCountLabel;
         private ToolStripStatusLabel languageLabel;
         private ToolStripComboBox languageComboBox;
+        private ToolStripStatusLabel themeLabel;
+        private ToolStripComboBox themeComboBox;
         private System.Windows.Forms.Timer refreshTimer;
         private int startDelay = 5; // Başlatma gecikmesi (saniye)
         private string settingsLanguageFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "language.json");
+        private string currentTheme = "System";
 
         public Form1()
         {
@@ -43,6 +46,7 @@ namespace RSBotManager
             LoadProfiles();
             LoadRunningBots();
             RefreshBotList();
+            ApplyCurrentTheme();
         }
         
         private void LoadIcon()
@@ -82,15 +86,34 @@ namespace RSBotManager
             }
             languageComboBox.SelectedItem = LanguageManager.CurrentLanguage;
             languageComboBox.SelectedIndexChanged += LanguageComboBox_SelectedIndexChanged;
-            
+
+            themeLabel = new ToolStripStatusLabel(LanguageManager.GetText("Theme"));
+            themeLabel.Margin = new Padding(10, 3, 0, 2);
+
+            themeComboBox = new ToolStripComboBox();
+            themeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            themeComboBox.Width = 100;
+            themeComboBox.Items.Add(LanguageManager.GetText("ThemeLight"));
+            themeComboBox.Items.Add(LanguageManager.GetText("ThemeDark"));
+            themeComboBox.Items.Add(LanguageManager.GetText("ThemeSystem"));
+            themeComboBox.SelectedItem = currentTheme switch
+            {
+                "Light" => LanguageManager.GetText("ThemeLight"),
+                "Dark"  => LanguageManager.GetText("ThemeDark"),
+                _       => LanguageManager.GetText("ThemeSystem")
+            };
+            themeComboBox.SelectedIndexChanged += ThemeComboBox_SelectedIndexChanged;
+
             statusLabel = new ToolStripStatusLabel(LanguageManager.GetText("Ready"));
             statusLabel.Spring = true;
-            
+
             botCountLabel = new ToolStripStatusLabel(LanguageManager.GetText("RunningBots") + " 0");
             botCountLabel.Alignment = ToolStripItemAlignment.Right;
-            
+
             statusStrip.Items.Add(languageLabel);
             statusStrip.Items.Add(languageComboBox);
+            statusStrip.Items.Add(themeLabel);
+            statusStrip.Items.Add(themeComboBox);
             statusStrip.Items.Add(statusLabel);
             statusStrip.Items.Add(botCountLabel);
             
@@ -119,7 +142,28 @@ namespace RSBotManager
                 UpdateUILanguage();
             }
         }
-        
+
+        private void ThemeComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (themeComboBox.SelectedItem == null) return;
+
+            string selected = themeComboBox.SelectedItem.ToString();
+            if (selected == LanguageManager.GetText("ThemeLight"))
+                currentTheme = "Light";
+            else if (selected == LanguageManager.GetText("ThemeDark"))
+                currentTheme = "Dark";
+            else
+                currentTheme = "System";
+
+            SaveLanguageSettings();
+            ThemeManager.ApplyTheme(this, ThemeManager.GetCurrentColors(currentTheme));
+        }
+
+        private void ApplyCurrentTheme()
+        {
+            ThemeManager.ApplyTheme(this, ThemeManager.GetCurrentColors(currentTheme));
+        }
+
         private void LoadLanguageSettings()
         {
             try
@@ -129,11 +173,18 @@ namespace RSBotManager
                     string json = File.ReadAllText(settingsLanguageFilePath);
                     var settings = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
                     
-                    if (settings != null && settings.TryGetValue("Language", out string language))
+                    if (settings != null)
                     {
-                        if (LanguageManager.SupportedLanguages.Contains(language))
+                        if (settings.TryGetValue("Language", out string language) &&
+                            LanguageManager.SupportedLanguages.Contains(language))
                         {
                             LanguageManager.CurrentLanguage = language;
+                        }
+
+                        if (settings.TryGetValue("Theme", out string theme) &&
+                            (theme == "Light" || theme == "Dark" || theme == "System"))
+                        {
+                            currentTheme = theme;
                         }
                     }
                 }
@@ -150,7 +201,8 @@ namespace RSBotManager
             {
                 var settings = new Dictionary<string, string>
                 {
-                    { "Language", LanguageManager.CurrentLanguage }
+                    { "Language", LanguageManager.CurrentLanguage },
+                    { "Theme", currentTheme }
                 };
                 
                 string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
@@ -189,6 +241,8 @@ namespace RSBotManager
             btnAddProfile.Text = LanguageManager.GetText("Add");
             btnEditProfile.Text = LanguageManager.GetText("Edit");
             btnRemoveProfile.Text = LanguageManager.GetText("Remove");
+            btnAddGroup.Text = LanguageManager.GetText("AddGroup");
+            btnRemoveGroup.Text = LanguageManager.GetText("RemoveGroup");
             btnBrowse.Text = LanguageManager.GetText("Browse");
             btnStartSelected.Text = LanguageManager.GetText("StartSelected");
             btnStop.Text = LanguageManager.GetText("Stop");
@@ -209,6 +263,21 @@ namespace RSBotManager
             statusLabel.Text = LanguageManager.GetText("Ready");
             int runningBots = bots.Count(b => b.Process != null && !b.Process.HasExited);
             botCountLabel.Text = $"{LanguageManager.GetText("RunningBots")} {runningBots}";
+
+            // Theme ComboBox — rebuild items in the new language, preserve internal currentTheme value
+            themeLabel.Text = LanguageManager.GetText("Theme");
+            themeComboBox.SelectedIndexChanged -= ThemeComboBox_SelectedIndexChanged;
+            themeComboBox.Items.Clear();
+            themeComboBox.Items.Add(LanguageManager.GetText("ThemeLight"));
+            themeComboBox.Items.Add(LanguageManager.GetText("ThemeDark"));
+            themeComboBox.Items.Add(LanguageManager.GetText("ThemeSystem"));
+            themeComboBox.SelectedItem = currentTheme switch
+            {
+                "Light" => LanguageManager.GetText("ThemeLight"),
+                "Dark"  => LanguageManager.GetText("ThemeDark"),
+                _       => LanguageManager.GetText("ThemeSystem")
+            };
+            themeComboBox.SelectedIndexChanged += ThemeComboBox_SelectedIndexChanged;
             
             // Context menu (no longer needed for command format, but kept for compatibility)
             
@@ -327,20 +396,24 @@ namespace RSBotManager
             profileButtonsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 35));
             profileButtonsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 35));
 
-            // Profil listesi (ListBox)
-            lstProfiles = new ListBox
+            // Profil listesi (TreeView)
+            treeProfiles = new TreeView
             {
                 Dock = DockStyle.Fill,
                 BorderStyle = BorderStyle.FixedSingle,
                 BackColor = Color.White,
-                Font = new Font(this.Font.FontFamily, 12F),
-                IntegralHeight = false,
-                ItemHeight = 28
+                Font = new Font(this.Font.FontFamily, 10F),
+                HideSelection = false,
+                FullRowSelect = true,
+                ShowLines = true,
+                ShowPlusMinus = true,
+                ShowRootLines = true,
+                AllowDrop = true
             };
 
             // Kontrolleri doğru sırada ekle (ters sıra: önce bottom, sonra fill, en son top)
             leftPanel.Controls.Add(profileButtonsPanel);
-            leftPanel.Controls.Add(lstProfiles);
+            leftPanel.Controls.Add(treeProfiles);
             leftPanel.Controls.Add(lblProfiles);
 
             btnAddProfile = new Button
@@ -379,39 +452,39 @@ namespace RSBotManager
             };
             btnRemoveProfile.FlatAppearance.BorderSize = 0;
 
-            btnMoveUp = new Button
-            {
-                Text = "⬆⬆",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 2, 0),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(108, 117, 125),
-                ForeColor = Color.White,
-                Font = new Font(this.Font.FontFamily, 12F, FontStyle.Bold)
-            };
-            btnMoveUp.FlatAppearance.BorderSize = 0;
-
-            btnMoveDown = new Button
-            {
-                Text = "⬇⬇",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(2, 0, 0, 0),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(108, 117, 125),
-                ForeColor = Color.White,
-                Font = new Font(this.Font.FontFamily, 12F, FontStyle.Bold)
-            };
-            btnMoveDown.FlatAppearance.BorderSize = 0;
-
             // Butonları panele ekle
             profileButtonsPanel.Controls.Add(btnAddProfile, 0, 0);
             profileButtonsPanel.Controls.Add(btnEditProfile, 1, 0);
-            
+
             profileButtonsPanel.Controls.Add(btnRemoveProfile, 0, 1);
             profileButtonsPanel.SetColumnSpan(btnRemoveProfile, 2); // Çıkar butonu 2 sütun genişliğinde
-            
-            profileButtonsPanel.Controls.Add(btnMoveUp, 0, 2);
-            profileButtonsPanel.Controls.Add(btnMoveDown, 1, 2);
+
+            btnAddGroup = new Button
+            {
+                Text = LanguageManager.GetText("AddGroup"),
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 2, 0),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(23, 162, 184),
+                ForeColor = Color.White,
+                Font = new Font(this.Font.FontFamily, 10F, FontStyle.Bold)
+            };
+            btnAddGroup.FlatAppearance.BorderSize = 0;
+
+            btnRemoveGroup = new Button
+            {
+                Text = LanguageManager.GetText("RemoveGroup"),
+                Dock = DockStyle.Fill,
+                Margin = new Padding(2, 0, 0, 0),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(255, 193, 7),
+                ForeColor = Color.Black,
+                Font = new Font(this.Font.FontFamily, 10F, FontStyle.Bold)
+            };
+            btnRemoveGroup.FlatAppearance.BorderSize = 0;
+
+            profileButtonsPanel.Controls.Add(btnAddGroup, 0, 2);
+            profileButtonsPanel.Controls.Add(btnRemoveGroup, 1, 2);
 
             // === SAĞ PANEL: Üst ayarlar + Alt bot listesi ===
             var rightPanel = new TableLayoutPanel
@@ -617,7 +690,7 @@ namespace RSBotManager
                 Dock = DockStyle.Fill,
                 View = View.Details,
                 FullRowSelect = true,
-                GridLines = true,
+                GridLines = false,
                 MultiSelect = false,
                 HideSelection = false,
                 BorderStyle = BorderStyle.FixedSingle,
@@ -641,9 +714,13 @@ namespace RSBotManager
             btnAddProfile.Click += BtnAddProfile_Click;
             btnEditProfile.Click += BtnEditProfile_Click;
             btnRemoveProfile.Click += BtnRemoveProfile_Click;
-            btnMoveUp.Click += BtnMoveUp_Click;
-            btnMoveDown.Click += BtnMoveDown_Click;
-            lstProfiles.SelectedIndexChanged += LstProfiles_SelectedIndexChanged;
+            treeProfiles.AfterSelect += TreeProfiles_AfterSelect;
+            treeProfiles.ItemDrag += TreeProfiles_ItemDrag;
+            treeProfiles.DragEnter += TreeProfiles_DragEnter;
+            treeProfiles.DragOver += TreeProfiles_DragOver;
+            treeProfiles.DragDrop += TreeProfiles_DragDrop;
+            btnAddGroup.Click += BtnAddGroup_Click;
+            btnRemoveGroup.Click += BtnRemoveGroup_Click;
             btnStartSelected.Click += BtnStartSelected_Click;
             btnStopAll.Click += BtnStopAll_Click;
             btnToggleAllVisibility.Click += BtnToggleAllVisibility_Click;
@@ -657,70 +734,460 @@ namespace RSBotManager
             
             btnEditProfile.Enabled = false;
             btnRemoveProfile.Enabled = false;
-            btnMoveUp.Enabled = false;
-            btnMoveDown.Enabled = false;
+            btnRemoveGroup.Enabled = false;
             btnStartAll.Enabled = false;
             btnStartSelected.Enabled = false;
             btnStopAll.Enabled = false;
             btnToggleAllVisibility.Enabled = false;
         }
 
-        private void LstProfiles_SelectedIndexChanged(object sender, EventArgs e)
+        private void TreeProfiles_AfterSelect(object sender, TreeViewEventArgs e)
         {
-            bool hasSelection = lstProfiles.SelectedIndex >= 0;
-            btnEditProfile.Enabled = hasSelection;
-            btnRemoveProfile.Enabled = hasSelection;
-            btnMoveUp.Enabled = hasSelection && lstProfiles.SelectedIndex > 0;
-            btnMoveDown.Enabled = hasSelection && lstProfiles.SelectedIndex < lstProfiles.Items.Count - 1;
-            btnStartSelected.Enabled = hasSelection && !string.IsNullOrWhiteSpace(txtRSBotPath.Text);
+            if (e.Node == null)
+            {
+                btnEditProfile.Enabled = false;
+                btnRemoveProfile.Enabled = false;
+                btnRemoveGroup.Enabled = false;
+                btnRemoveGroup.ForeColor = Color.Black;
+                btnStartSelected.Enabled = false;
+                return;
+            }
+
+            bool hasRSBotPath = !string.IsNullOrWhiteSpace(txtRSBotPath.Text);
+
+            if (e.Node.Tag is ProfileGroup group)
+            {
+                btnEditProfile.Enabled = false;
+                btnRemoveProfile.Enabled = false;
+                btnRemoveGroup.Enabled = true;
+                btnRemoveGroup.ForeColor = Color.White;
+                btnStartSelected.Enabled = group.Profiles.Count > 0 && hasRSBotPath;
+            }
+            else if (e.Node.Tag is Profile)
+            {
+                btnEditProfile.Enabled = true;
+                btnRemoveProfile.Enabled = true;
+                btnRemoveGroup.Enabled = false;
+                btnRemoveGroup.ForeColor = Color.Black;
+                btnStartSelected.Enabled = hasRSBotPath;
+            }
+            else
+            {
+                btnEditProfile.Enabled = false;
+                btnRemoveProfile.Enabled = false;
+                btnRemoveGroup.Enabled = false;
+                btnRemoveGroup.ForeColor = Color.Black;
+                btnStartSelected.Enabled = false;
+            }
         }
 
-        private void BtnMoveUp_Click(object sender, EventArgs e)
+        private void TreeProfiles_ItemDrag(object sender, ItemDragEventArgs e)
         {
-            if (lstProfiles.SelectedIndex <= 0) return;
-            
-            int index = lstProfiles.SelectedIndex;
-            var item = savedProfiles[index];
-            
-            savedProfiles.RemoveAt(index);
-            savedProfiles.Insert(index - 1, item);
-            
-            RefreshProfileList();
-            lstProfiles.SelectedIndex = index - 1;
-            SaveProfiles();
+            if (e.Item is TreeNode node && (node.Tag is Profile || node.Tag is ProfileGroup))
+            {
+                DoDragDrop(node, DragDropEffects.Move);
+            }
         }
 
-        private void BtnMoveDown_Click(object sender, EventArgs e)
+        private void TreeProfiles_DragEnter(object sender, DragEventArgs e)
         {
-            if (lstProfiles.SelectedIndex < 0 || lstProfiles.SelectedIndex >= lstProfiles.Items.Count - 1) return;
-            
-            int index = lstProfiles.SelectedIndex;
-            var item = savedProfiles[index];
-            
-            savedProfiles.RemoveAt(index);
-            savedProfiles.Insert(index + 1, item);
-            
+            if (e.Data.GetDataPresent(typeof(TreeNode)))
+                e.Effect = DragDropEffects.Move;
+            else
+                e.Effect = DragDropEffects.None;
+        }
+
+        private void TreeProfiles_DragOver(object sender, DragEventArgs e)
+        {
+            TreeNode draggedNode = (TreeNode)e.Data.GetData(typeof(TreeNode));
+            if (draggedNode == null) { e.Effect = DragDropEffects.None; return; }
+
+            Point targetPoint = treeProfiles.PointToClient(new Point(e.X, e.Y));
+            TreeNode targetNode = treeProfiles.GetNodeAt(targetPoint);
+
+            bool isDraggingProfile = draggedNode.Tag is Profile;
+            bool isDraggingGroup = draggedNode.Tag is ProfileGroup;
+
+            if (isDraggingProfile)
+            {
+                if (targetNode == null)
+                {
+                    e.Effect = DragDropEffects.Move;
+                }
+                else if (targetNode == draggedNode)
+                {
+                    e.Effect = DragDropEffects.None;
+                }
+                else if (targetNode.Tag is ProfileGroup)
+                {
+                    if (draggedNode.Parent == targetNode)
+                        e.Effect = DragDropEffects.None;
+                    else
+                        e.Effect = DragDropEffects.Move;
+                }
+                else if (targetNode.Tag is Profile)
+                {
+                    e.Effect = DragDropEffects.Move;
+                }
+                else
+                {
+                    e.Effect = DragDropEffects.None;
+                }
+            }
+            else if (isDraggingGroup)
+            {
+                if (targetNode == null || targetNode == draggedNode)
+                {
+                    e.Effect = (targetNode == null) ? DragDropEffects.Move : DragDropEffects.None;
+                }
+                else if (targetNode.Parent == null)
+                {
+                    e.Effect = DragDropEffects.Move;
+                }
+                else
+                {
+                    e.Effect = DragDropEffects.None;
+                }
+            }
+            else
+            {
+                e.Effect = DragDropEffects.None;
+            }
+
+            if (targetNode != null && e.Effect == DragDropEffects.Move)
+                treeProfiles.SelectedNode = targetNode;
+        }
+
+        private void TreeProfiles_DragDrop(object sender, DragEventArgs e)
+        {
+            TreeNode draggedNode = (TreeNode)e.Data.GetData(typeof(TreeNode));
+            if (draggedNode == null) return;
+
+            Point targetPoint = treeProfiles.PointToClient(new Point(e.X, e.Y));
+            TreeNode targetNode = treeProfiles.GetNodeAt(targetPoint);
+
+            bool isDraggingProfile = draggedNode.Tag is Profile;
+            bool isDraggingGroup = draggedNode.Tag is ProfileGroup;
+
+            if (isDraggingProfile)
+            {
+                Profile profile = (Profile)draggedNode.Tag;
+
+                RemoveProfileFromData(profile);
+
+                if (targetNode == null)
+                {
+                    profileData.UngroupedProfiles.Add(profile);
+                }
+                else if (targetNode.Tag is ProfileGroup targetGroup)
+                {
+                    targetGroup.Profiles.Add(profile);
+                }
+                else if (targetNode.Tag is Profile targetProfile)
+                {
+                    InsertProfileNear(profile, targetProfile);
+                }
+            }
+            else if (isDraggingGroup)
+            {
+                ProfileGroup group = (ProfileGroup)draggedNode.Tag;
+
+                if (targetNode == null)
+                {
+                    profileData.Groups.Remove(group);
+                    profileData.Groups.Add(group);
+                }
+                else if (targetNode.Tag is ProfileGroup targetGroup && targetGroup != group)
+                {
+                    profileData.Groups.Remove(group);
+                    int targetIndex = profileData.Groups.IndexOf(targetGroup);
+                    profileData.Groups.Insert(targetIndex, group);
+                }
+                else if (targetNode.Tag is Profile && targetNode.Parent == null)
+                {
+                    profileData.Groups.Remove(group);
+                    profileData.Groups.Add(group);
+                }
+            }
+
             RefreshProfileList();
-            lstProfiles.SelectedIndex = index + 1;
             SaveProfiles();
+
+            SelectNodeByTag(draggedNode.Tag);
+        }
+
+        private List<Profile> GetAllProfiles()
+        {
+            return profileData.UngroupedProfiles.Concat(profileData.Groups.SelectMany(g => g.Profiles)).ToList();
+        }
+
+        private void RemoveProfileFromData(Profile profile)
+        {
+            profileData.UngroupedProfiles.Remove(profile);
+            foreach (var group in profileData.Groups)
+            {
+                group.Profiles.Remove(profile);
+            }
+        }
+
+        private void InsertProfileNear(Profile profile, Profile targetProfile)
+        {
+            int idx = profileData.UngroupedProfiles.IndexOf(targetProfile);
+            if (idx >= 0)
+            {
+                profileData.UngroupedProfiles.Insert(idx + 1, profile);
+                return;
+            }
+            foreach (var group in profileData.Groups)
+            {
+                idx = group.Profiles.IndexOf(targetProfile);
+                if (idx >= 0)
+                {
+                    group.Profiles.Insert(idx + 1, profile);
+                    return;
+                }
+            }
+            profileData.UngroupedProfiles.Add(profile);
+        }
+
+        private void SelectNodeByTag(object tag)
+        {
+            foreach (TreeNode node in treeProfiles.Nodes)
+            {
+                if (node.Tag == tag) { treeProfiles.SelectedNode = node; return; }
+                foreach (TreeNode child in node.Nodes)
+                {
+                    if (child.Tag == tag) { treeProfiles.SelectedNode = child; return; }
+                }
+            }
         }
 
         private void RefreshProfileList()
         {
-            lstProfiles.Items.Clear();
-            foreach (var profile in savedProfiles)
+            treeProfiles.BeginUpdate();
+            treeProfiles.Nodes.Clear();
+
+            // Add groups as parent nodes with profiles as children
+            foreach (var group in profileData.Groups)
             {
-                lstProfiles.Items.Add(profile.Name);
+                var groupNode = new TreeNode(group.Name);
+                groupNode.NodeFont = new Font(treeProfiles.Font, FontStyle.Bold);
+                groupNode.Tag = group;
+
+                foreach (var profile in group.Profiles)
+                {
+                    var profileNode = new TreeNode(profile.Name);
+                    profileNode.Tag = profile;
+                    groupNode.Nodes.Add(profileNode);
+                }
+
+                treeProfiles.Nodes.Add(groupNode);
+                groupNode.Expand();
             }
-            
-            btnStartAll.Enabled = savedProfiles.Count > 0 && !string.IsNullOrWhiteSpace(txtRSBotPath.Text);
+
+            // Add ungrouped profiles as root-level nodes
+            foreach (var profile in profileData.UngroupedProfiles)
+            {
+                var profileNode = new TreeNode(profile.Name);
+                profileNode.Tag = profile;
+                treeProfiles.Nodes.Add(profileNode);
+            }
+
+            treeProfiles.EndUpdate();
+
+            // Update Start All button state
+            bool hasAnyProfiles = profileData.Groups.Any(g => g.Profiles.Count > 0) || profileData.UngroupedProfiles.Count > 0;
+            btnStartAll.Enabled = hasAnyProfiles && !string.IsNullOrWhiteSpace(txtRSBotPath.Text);
         }
         
         private void BtnAddProfile_Click(object sender, EventArgs e)
         {
             ShowProfileDialog(null);
         }
-        
+
+        private void BtnAddGroup_Click(object sender, EventArgs e)
+        {
+            ShowGroupDialog();
+        }
+
+        private void ShowGroupDialog()
+        {
+            using (var inputForm = new Form())
+            {
+                inputForm.Text = LanguageManager.GetText("AddNewGroup");
+                inputForm.Size = new Size(400, 150);
+                inputForm.StartPosition = FormStartPosition.CenterParent;
+                inputForm.FormBorderStyle = FormBorderStyle.FixedDialog;
+                inputForm.MaximizeBox = false;
+                inputForm.MinimizeBox = false;
+
+                var lblPrompt = new Label
+                {
+                    Text = LanguageManager.GetText("GroupNameLabel"),
+                    Location = new Point(20, 20),
+                    Size = new Size(350, 20)
+                };
+
+                var txtInput = new TextBox
+                {
+                    Location = new Point(20, 45),
+                    Size = new Size(340, 25)
+                };
+
+                var btnOK = new Button
+                {
+                    Text = LanguageManager.GetText("Save"),
+                    DialogResult = DialogResult.OK,
+                    Location = new Point(200, 80),
+                    Size = new Size(80, 30)
+                };
+
+                var btnCancel = new Button
+                {
+                    Text = LanguageManager.GetText("Cancel"),
+                    DialogResult = DialogResult.Cancel,
+                    Location = new Point(290, 80),
+                    Size = new Size(70, 30)
+                };
+
+                inputForm.Controls.AddRange(new Control[] { lblPrompt, txtInput, btnOK, btnCancel });
+                inputForm.AcceptButton = btnOK;
+                inputForm.CancelButton = btnCancel;
+
+                ThemeManager.ApplyTheme(inputForm, ThemeManager.GetCurrentColors(currentTheme));
+
+                if (inputForm.ShowDialog() == DialogResult.OK)
+                {
+                    string groupName = txtInput.Text.Trim();
+
+                    if (string.IsNullOrWhiteSpace(groupName))
+                    {
+                        MessageBox.Show(LanguageManager.GetText("EnterGroupName"), LanguageManager.GetText("Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    if (profileData.Groups.Any(g => g.Name == groupName))
+                    {
+                        MessageBox.Show(LanguageManager.GetText("GroupAlreadyExists", groupName), LanguageManager.GetText("Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    var newGroup = new ProfileGroup { Name = groupName };
+                    profileData.Groups.Add(newGroup);
+                    RefreshProfileList();
+                    SaveProfiles();
+
+                    // Select the new group node
+                    foreach (TreeNode node in treeProfiles.Nodes)
+                    {
+                        if (node.Tag == newGroup)
+                        {
+                            treeProfiles.SelectedNode = node;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void BtnRemoveGroup_Click(object sender, EventArgs e)
+        {
+            var selectedNode = treeProfiles.SelectedNode;
+            if (selectedNode == null) return;
+
+            var group = selectedNode.Tag as ProfileGroup;
+            if (group == null) return;
+
+            if (group.Profiles.Count > 0)
+            {
+                // Smart delete dialog for groups with profiles
+                using (var dialog = new Form())
+                {
+                    dialog.Text = LanguageManager.GetText("DeleteGroup");
+                    dialog.Size = new Size(450, 160);
+                    dialog.StartPosition = FormStartPosition.CenterParent;
+                    dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                    dialog.MaximizeBox = false;
+                    dialog.MinimizeBox = false;
+
+                    var lblMessage = new Label
+                    {
+                        Text = LanguageManager.GetText("ConfirmDeleteGroupWithProfiles", group.Name),
+                        Location = new Point(20, 15),
+                        Size = new Size(400, 40),
+                        AutoSize = false
+                    };
+
+                    var btnUngroup = new Button
+                    {
+                        Text = LanguageManager.GetText("UngroupProfiles"),
+                        Location = new Point(20, 70),
+                        Size = new Size(130, 35),
+                        FlatStyle = FlatStyle.Flat,
+                        BackColor = Color.FromArgb(13, 110, 253),
+                        ForeColor = Color.White
+                    };
+                    btnUngroup.FlatAppearance.BorderSize = 0;
+
+                    var btnDeleteAll = new Button
+                    {
+                        Text = LanguageManager.GetText("DeleteWithGroup"),
+                        Location = new Point(160, 70),
+                        Size = new Size(130, 35),
+                        FlatStyle = FlatStyle.Flat,
+                        BackColor = Color.FromArgb(220, 53, 69),
+                        ForeColor = Color.White
+                    };
+                    btnDeleteAll.FlatAppearance.BorderSize = 0;
+
+                    var btnCancel = new Button
+                    {
+                        Text = LanguageManager.GetText("Cancel"),
+                        DialogResult = DialogResult.Cancel,
+                        Location = new Point(340, 70),
+                        Size = new Size(80, 35)
+                    };
+
+                    string result = null;
+                    btnUngroup.Click += (s, args) => { result = "ungroup"; dialog.Close(); };
+                    btnDeleteAll.Click += (s, args) => { result = "delete"; dialog.Close(); };
+
+                    dialog.Controls.AddRange(new Control[] { lblMessage, btnUngroup, btnDeleteAll, btnCancel });
+                    dialog.CancelButton = btnCancel;
+
+                    ThemeManager.ApplyTheme(dialog, ThemeManager.GetCurrentColors(currentTheme));
+
+                    dialog.ShowDialog();
+
+                    if (result == "ungroup")
+                    {
+                        profileData.UngroupedProfiles.AddRange(group.Profiles);
+                        group.Profiles.Clear();
+                        profileData.Groups.Remove(group);
+                        RefreshProfileList();
+                        SaveProfiles();
+                    }
+                    else if (result == "delete")
+                    {
+                        profileData.Groups.Remove(group);
+                        RefreshProfileList();
+                        SaveProfiles();
+                    }
+                }
+            }
+            else
+            {
+                // Empty group — simple confirmation
+                if (MessageBox.Show(LanguageManager.GetText("ConfirmDeleteGroupWithProfiles", group.Name), LanguageManager.GetText("DeleteGroup"),
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    profileData.Groups.Remove(group);
+                    RefreshProfileList();
+                    SaveProfiles();
+                }
+            }
+        }
+
         private void ShowProfileDialog(Profile existingProfile)
         {
             bool isEdit = existingProfile != null;
@@ -793,6 +1260,9 @@ namespace RSBotManager
                 inputForm.AcceptButton = btnOK;
                 inputForm.CancelButton = btnCancel;
 
+                // Apply current theme to dialog — do the same for any new dialogs
+                ThemeManager.ApplyTheme(inputForm, ThemeManager.GetCurrentColors(currentTheme));
+
                 if (inputForm.ShowDialog() == DialogResult.OK)
                 {
                     string profileName = txtInput.Text.Trim();
@@ -804,7 +1274,7 @@ namespace RSBotManager
                     }
                     
                     // Aynı isimde profil varsa uyar (düzenleme sırasında mevcut profili hariç tut)
-                    if (savedProfiles.Any(p => p.Name == profileName && (!isEdit || p != existingProfile)))
+                    if (GetAllProfiles().Any(p => p.Name == profileName && (!isEdit || p != existingProfile)))
                     {
                         MessageBox.Show(LanguageManager.GetText("ProfileAlreadyExists", profileName), LanguageManager.GetText("Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
@@ -820,9 +1290,22 @@ namespace RSBotManager
                         SaveProfiles();
                         
                         // Güncellenen profili seç
-                        int index = savedProfiles.IndexOf(existingProfile);
-                        if (index >= 0)
-                            lstProfiles.SelectedIndex = index;
+                        foreach (TreeNode node in treeProfiles.Nodes)
+                        {
+                            if (node.Tag == existingProfile)
+                            {
+                                treeProfiles.SelectedNode = node;
+                                break;
+                            }
+                            foreach (TreeNode child in node.Nodes)
+                            {
+                                if (child.Tag == existingProfile)
+                                {
+                                    treeProfiles.SelectedNode = child;
+                                    break;
+                                }
+                            }
+                        }
                         
                         MessageBox.Show(LanguageManager.GetText("ProfileUpdated", profileName), LanguageManager.GetText("Info"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
@@ -835,12 +1318,13 @@ namespace RSBotManager
                             StartCl = chkStartCl.Checked,
                             StartCls = chkStartCls.Checked
                         };
-                        savedProfiles.Add(newProfile);
+                        profileData.UngroupedProfiles.Add(newProfile);
                         RefreshProfileList();
                         SaveProfiles();
                         
                         // Yeni eklenen profili seç
-                        lstProfiles.SelectedIndex = lstProfiles.Items.Count - 1;
+                        if (treeProfiles.Nodes.Count > 0)
+                            treeProfiles.SelectedNode = treeProfiles.Nodes[treeProfiles.Nodes.Count - 1];
                         
                         MessageBox.Show(LanguageManager.GetText("ProfileSaved", profileName), LanguageManager.GetText("Info"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
@@ -850,39 +1334,31 @@ namespace RSBotManager
         
         private void BtnRemoveProfile_Click(object sender, EventArgs e)
         {
-            if (lstProfiles.SelectedIndex < 0) return;
-            
-            string profileName = lstProfiles.SelectedItem.ToString();
-            var profile = savedProfiles.FirstOrDefault(p => p.Name == profileName);
+            var selectedNode = treeProfiles.SelectedNode;
+            if (selectedNode == null) return;
+
+            var profile = selectedNode.Tag as Profile;
             if (profile == null) return;
-            
+
+            string profileName = profile.Name;
+
             if (MessageBox.Show(LanguageManager.GetText("ConfirmDeleteProfile", profileName), LanguageManager.GetText("DeleteProfile"), 
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
-                int selectedIndex = lstProfiles.SelectedIndex;
-                savedProfiles.Remove(profile);
+                RemoveProfileFromData(profile);
                 RefreshProfileList();
                 SaveProfiles();
-                
-                // Silindikten sonra bir sonraki öğeyi seç
-                if (lstProfiles.Items.Count > 0)
-                {
-                    if (selectedIndex >= lstProfiles.Items.Count)
-                        lstProfiles.SelectedIndex = lstProfiles.Items.Count - 1;
-                    else
-                        lstProfiles.SelectedIndex = selectedIndex;
-                }
             }
         }
         
         private void BtnEditProfile_Click(object sender, EventArgs e)
         {
-            if (lstProfiles.SelectedIndex < 0) return;
-            
-            string profileName = lstProfiles.SelectedItem.ToString();
-            var profile = savedProfiles.FirstOrDefault(p => p.Name == profileName);
+            var selectedNode = treeProfiles.SelectedNode;
+            if (selectedNode == null) return;
+
+            var profile = selectedNode.Tag as Profile;
             if (profile == null) return;
-            
+
             ShowProfileDialog(profile);
         }
         
@@ -893,36 +1369,63 @@ namespace RSBotManager
                 if (File.Exists(profilesFilePath))
                 {
                     string json = File.ReadAllText(profilesFilePath);
-                    
-                    // Eski format (List<string>) kontrolü
+
+                    // Try new ProfileData format first
                     try
                     {
-                        var profiles = JsonSerializer.Deserialize<List<Profile>>(json);
-                        if (profiles != null)
+                        var data = JsonSerializer.Deserialize<ProfileData>(json);
+                        if (data != null)
                         {
-                            savedProfiles = profiles;
+                            profileData = data;
                             RefreshProfileList();
                             return;
                         }
                     }
                     catch
                     {
-                        // Yeni format başarısız oldu, eski formatı dene
+                        // Not ProfileData format, try fallbacks
                     }
-                    
-                    // Eski format (List<string>) - geriye dönük uyumluluk
-                    var oldProfiles = JsonSerializer.Deserialize<List<string>>(json);
-                    if (oldProfiles != null)
+
+                    // Fallback: Try List<Profile> format
+                    try
                     {
-                        savedProfiles = oldProfiles.Select(name => new Profile { Name = name, StartCl = false, StartCls = false }).ToList();
-                        RefreshProfileList();
-                        SaveProfiles(); // Yeni formata dönüştür ve kaydet
+                        var profiles = JsonSerializer.Deserialize<List<Profile>>(json);
+                        if (profiles != null)
+                        {
+                            profileData = new ProfileData { UngroupedProfiles = profiles };
+                            RefreshProfileList();
+                            SaveProfiles();
+                            return;
+                        }
+                    }
+                    catch
+                    {
+                        // Not List<Profile> format, try legacy
+                    }
+
+                    // Fallback: Try List<string> (legacy format)
+                    try
+                    {
+                        var names = JsonSerializer.Deserialize<List<string>>(json);
+                        if (names != null)
+                        {
+                            profileData = new ProfileData
+                            {
+                                UngroupedProfiles = names.Select(n => new Profile { Name = n }).ToList()
+                            };
+                            RefreshProfileList();
+                            SaveProfiles();
+                        }
+                    }
+                    catch
+                    {
+                        // Unknown format
                     }
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Profiller yüklenirken hata oluştu: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"{LanguageManager.GetText("Error")}: {ex.Message}", LanguageManager.GetText("Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         
@@ -930,12 +1433,12 @@ namespace RSBotManager
         {
             try
             {
-                string json = JsonSerializer.Serialize(savedProfiles, new JsonSerializerOptions { WriteIndented = true });
+                string json = JsonSerializer.Serialize(profileData, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(profilesFilePath, json);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Profiller kaydedilirken hata oluştu: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"{LanguageManager.GetText("Error")}: {ex.Message}", LanguageManager.GetText("Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         
@@ -970,7 +1473,9 @@ namespace RSBotManager
                 return;
             }
 
-            if (savedProfiles.Count == 0)
+            var allProfiles = GetAllProfiles();
+
+            if (allProfiles.Count == 0)
             {
                 MessageBox.Show(LanguageManager.GetText("NoProfilesFound"), LanguageManager.GetText("Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -990,18 +1495,16 @@ namespace RSBotManager
             btnStartAll.Enabled = false;
             btnAddProfile.Enabled = false;
             btnRemoveProfile.Enabled = false;
-            btnMoveUp.Enabled = false;
-            btnMoveDown.Enabled = false;
             this.Cursor = Cursors.WaitCursor;
 
             try
             {
                 statusLabel.Text = LanguageManager.GetText("BotsStarting");
 
-                for (int i = 0; i < savedProfiles.Count; i++)
+                for (int i = 0; i < allProfiles.Count; i++)
                 {
-                    var profile = savedProfiles[i];
-                    
+                    var profile = allProfiles[i];
+
                     // Zaten çalışıyor mu kontrol et
                     var existingBot = bots.Find(b => b.Name == profile.Name && b.Process != null && !b.Process.HasExited);
                     if (existingBot != null)
@@ -1011,13 +1514,13 @@ namespace RSBotManager
                         continue;
                     }
 
-                    statusLabel.Text = LanguageManager.GetText("StartingProfile", profile.Name, i + 1, savedProfiles.Count);
-                    
+                    statusLabel.Text = LanguageManager.GetText("StartingProfile", profile.Name, i + 1, allProfiles.Count);
+
                     // Botu başlat
                     await StartBot(profile);
 
                     // Son bot değilse delay uygula
-                    if (i < savedProfiles.Count - 1 && startDelay > 0)
+                    if (i < allProfiles.Count - 1 && startDelay > 0)
                     {
                         for (int countdown = startDelay; countdown > 0; countdown--)
                         {
@@ -1127,6 +1630,7 @@ namespace RSBotManager
         {
             UpdateButtonStates();
         }
+
           private void UpdateButtonStates()
         {
             bool hasSelection = lvwBots.SelectedItems.Count > 0;
@@ -1140,10 +1644,11 @@ namespace RSBotManager
             btnToggleAllVisibility.Enabled = hasBots;
             
             // Buton renklerini duruma göre ayarla
+            var disabledColor = ThemeManager.GetCurrentColors(currentTheme).DisabledButtonColor;
             if (!hasSelection)
             {
-                btnStop.BackColor = Color.FromArgb(150, 150, 150);
-                btnHideShow.BackColor = Color.FromArgb(150, 150, 150);
+                btnStop.BackColor = disabledColor;
+                btnHideShow.BackColor = disabledColor;
             }
             else
             {
@@ -1160,7 +1665,7 @@ namespace RSBotManager
             if (lvwBots.SelectedItems.Count == 0)
             {
                 btnHideShow.Text = LanguageManager.GetText("HideShow");
-                btnHideShow.BackColor = Color.FromArgb(108, 117, 125); // Gray for inactive
+                btnHideShow.BackColor = ThemeManager.GetCurrentColors(currentTheme).DisabledButtonColor;
                 btnHideShow.ForeColor = Color.White;
                 return;
             }
@@ -1186,13 +1691,15 @@ namespace RSBotManager
             else
             {
                 btnHideShow.Text = LanguageManager.GetText("HideShow");
-                btnHideShow.BackColor = Color.FromArgb(108, 117, 125); // Gray for inactive
+                btnHideShow.BackColor = ThemeManager.GetCurrentColors(currentTheme).DisabledButtonColor;
                 btnHideShow.ForeColor = Color.White;
             }
         }
 
         private void RefreshBotList()
         {
+            var colors = ThemeManager.GetCurrentColors(currentTheme);
+
             // Mevcut seçimi hatırla
             string selectedBotName = null;
             if (lvwBots.SelectedItems.Count > 0)
@@ -1249,31 +1756,31 @@ namespace RSBotManager
                         // Bot durumuna göre renklendirme
                         if (bot.Process.HasExited)
                         {
-                            // Kapalı bot - kırmızı
-                            item.ForeColor = Color.Red;
-                            item.BackColor = Color.FromArgb(255, 240, 240);
+                            // Kapalı bot
+                            item.ForeColor = colors.ClosedBotForeColor;
+                            item.BackColor = colors.ClosedBotBackColor;
                             statusItem.Text = LanguageManager.GetText("Closed");
-                            statusItem.ForeColor = Color.Red;
+                            statusItem.ForeColor = colors.ClosedBotForeColor;
                         }
                         else if (bot.IsHidden)
                         {
-                            // Gizli bot - mavi
-                            item.ForeColor = Color.DarkBlue;
-                            item.BackColor = Color.FromArgb(240, 240, 255);
+                            // Gizli bot
+                            item.ForeColor = colors.HiddenBotForeColor;
+                            item.BackColor = colors.HiddenBotBackColor;
                             statusItem.Text = LanguageManager.GetText("Running");
-                            statusItem.ForeColor = Color.Green;
+                            statusItem.ForeColor = colors.RunningBotForeColor;
                             displayItem.Text = LanguageManager.GetText("Hidden");
-                            displayItem.ForeColor = Color.Blue;
+                            displayItem.ForeColor = colors.HiddenBotForeColor;
                         }
                         else
                         {
-                            // Çalışan ve görünen bot - yeşil
-                            item.ForeColor = Color.DarkGreen;
-                            item.BackColor = Color.FromArgb(240, 255, 240);
+                            // Çalışan ve görünen bot
+                            item.ForeColor = colors.RunningBotForeColor;
+                            item.BackColor = colors.RunningBotBackColor;
                             statusItem.Text = LanguageManager.GetText("Running");
-                            statusItem.ForeColor = Color.Green;
+                            statusItem.ForeColor = colors.RunningBotForeColor;
                             displayItem.Text = LanguageManager.GetText("Visible");
-                            displayItem.ForeColor = Color.Black;
+                            displayItem.ForeColor = colors.TextColor;
                         }
                         
                         // Bot adı için kalın font
@@ -1301,9 +1808,9 @@ namespace RSBotManager
                 for (int i = 0; i < lvwBots.Items.Count; i++)
                 {
                     if (i % 2 == 0)
-                        lvwBots.Items[i].BackColor = Color.FromArgb(250, 250, 250);
+                        lvwBots.Items[i].BackColor = colors.ListBackgroundColor;
                     else
-                        lvwBots.Items[i].BackColor = Color.FromArgb(245, 245, 245);
+                        lvwBots.Items[i].BackColor = colors.ListAlternateBackground;
                 }
             }
             
@@ -1471,37 +1978,107 @@ namespace RSBotManager
 
         private async void BtnStartSelected_Click(object sender, EventArgs e)
         {
-            if (lstProfiles.SelectedIndex < 0) return;
-            
-            string profileName = lstProfiles.SelectedItem.ToString();
-            var profile = savedProfiles.FirstOrDefault(p => p.Name == profileName);
-            if (profile == null) return;
-            
-            // Zaten çalışıyor mu kontrol et
-            var existingBot = bots.Find(b => b.Name == profileName && b.Process != null && !b.Process.HasExited);
-            if (existingBot != null)
+            if (treeProfiles.SelectedNode == null) return;
+
+            if (string.IsNullOrWhiteSpace(txtRSBotPath.Text))
             {
-                MessageBox.Show(LanguageManager.GetText("AlreadyRunning", profileName), LanguageManager.GetText("Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(LanguageManager.GetText("SelectRSBotPath"), LanguageManager.GetText("Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
-            
-            btnStartSelected.Enabled = false;
-            this.Cursor = Cursors.WaitCursor;
-            
-            try
+
+            var selectedNode = treeProfiles.SelectedNode;
+
+            if (selectedNode.Tag is Profile profile)
             {
-                statusLabel.Text = LanguageManager.GetText("BotsStarting");
-                await StartBot(profile);
-                statusLabel.Text = LanguageManager.GetText("Ready");
+                var existingBot = bots.Find(b => b.Name == profile.Name && b.Process != null && !b.Process.HasExited);
+                if (existingBot != null)
+                {
+                    MessageBox.Show(LanguageManager.GetText("AlreadyRunning", profile.Name), LanguageManager.GetText("Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                btnStartSelected.Enabled = false;
+                this.Cursor = Cursors.WaitCursor;
+
+                try
+                {
+                    statusLabel.Text = LanguageManager.GetText("BotsStarting");
+                    await StartBot(profile);
+                    statusLabel.Text = LanguageManager.GetText("Ready");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"{LanguageManager.GetText("Error")}: {ex.Message}", LanguageManager.GetText("Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    this.Cursor = Cursors.Default;
+                    btnStartSelected.Enabled = treeProfiles.SelectedNode != null;
+                }
             }
-            catch (Exception ex)
+            else if (selectedNode.Tag is ProfileGroup group)
             {
-                MessageBox.Show($"{LanguageManager.GetText("Error")}: {ex.Message}", LanguageManager.GetText("Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                btnStartSelected.Enabled = lstProfiles.SelectedIndex >= 0;
+                if (group.Profiles.Count == 0)
+                {
+                    MessageBox.Show(LanguageManager.GetText("NoProfilesFound"), LanguageManager.GetText("Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!int.TryParse(txtDelay.Text, out int delay) || delay < 0)
+                {
+                    MessageBox.Show(LanguageManager.GetText("SelectRSBotPath"), LanguageManager.GetText("Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                startDelay = delay;
+
+                btnStartSelected.Enabled = false;
+                btnStartAll.Enabled = false;
+                this.Cursor = Cursors.WaitCursor;
+
+                try
+                {
+                    statusLabel.Text = LanguageManager.GetText("BotsStarting");
+
+                    for (int i = 0; i < group.Profiles.Count; i++)
+                    {
+                        var p = group.Profiles[i];
+
+                        var existingBot = bots.Find(b => b.Name == p.Name && b.Process != null && !b.Process.HasExited);
+                        if (existingBot != null)
+                        {
+                            statusLabel.Text = LanguageManager.GetText("AlreadyRunning", p.Name);
+                            await Task.Delay(1000);
+                            continue;
+                        }
+
+                        statusLabel.Text = LanguageManager.GetText("StartingGroup", group.Name, i + 1, group.Profiles.Count);
+                        await StartBot(p);
+
+                        if (i < group.Profiles.Count - 1 && startDelay > 0)
+                        {
+                            for (int countdown = startDelay; countdown > 0; countdown--)
+                            {
+                                statusLabel.Text = LanguageManager.GetText("NextBotIn", countdown);
+                                await Task.Delay(1000);
+                            }
+                        }
+                    }
+
+                    statusLabel.Text = LanguageManager.GetText("GroupStarted");
+                    await Task.Delay(2000);
+                    statusLabel.Text = LanguageManager.GetText("Ready");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"{LanguageManager.GetText("Error")}: {ex.Message}", LanguageManager.GetText("Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    this.Cursor = Cursors.Default;
+                    btnStartSelected.Enabled = true;
+                    btnStartAll.Enabled = true;
+                    RefreshBotList();
+                }
             }
         }
 
@@ -1796,7 +2373,7 @@ namespace RSBotManager
         // Form controls
         private TextBox txtRSBotPath = null!;
         private TextBox txtDelay = null!;
-        private ListBox lstProfiles = null!;
+        private TreeView treeProfiles = null!;
         private Button btnBrowse = null!;
         private Button btnStartAll = null!;
         private Button btnStop = null!;
@@ -1804,8 +2381,8 @@ namespace RSBotManager
         private Button btnAddProfile = null!;
         private Button btnEditProfile = null!;
         private Button btnRemoveProfile = null!;
-        private Button btnMoveUp = null!;
-        private Button btnMoveDown = null!;
+        private Button btnAddGroup = null!;
+        private Button btnRemoveGroup = null!;
         private Button btnStartSelected = null!;
         private Button btnStopAll = null!;
         private Button btnToggleAllVisibility = null!;
@@ -1851,6 +2428,18 @@ namespace RSBotManager
         public string Name { get; set; } = string.Empty;
         public bool StartCl { get; set; } = false; // Clientli başlat
         public bool StartCls { get; set; } = false; // Clientsiz başlat
+    }
+
+    public class ProfileGroup
+    {
+        public string Name { get; set; } = string.Empty;
+        public List<Profile> Profiles { get; set; } = new List<Profile>();
+    }
+
+    public class ProfileData
+    {
+        public List<ProfileGroup> Groups { get; set; } = new List<ProfileGroup>();
+        public List<Profile> UngroupedProfiles { get; set; } = new List<Profile>();
     }
 
     public static class NativeMethods

@@ -346,16 +346,17 @@ namespace RSBotManager
             this.BackColor = Color.FromArgb(245, 245, 250);
             this.Font = new Font("Segoe UI", 9F);
             this.FormClosing += Form1_FormClosing;
+            this.Load += (s, e) => mainSplitContainer.SplitterDistance = 315;
             
             // Create context menu (kept for compatibility, but command format is now fixed to --profile)
             var contextMenuStrip = new ContextMenuStrip();
 
             // Ana layout: Sol panel (profiller) + Sağ panel (üst ayarlar + alt bot listesi)
-            var mainSplitContainer = new SplitContainer
+            mainSplitContainer = new SplitContainer
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Vertical,
-                SplitterDistance = 280,
+                SplitterDistance = 315,
                 FixedPanel = FixedPanel.Panel1,
                 IsSplitterFixed = false,
                 BorderStyle = BorderStyle.FixedSingle
@@ -411,9 +412,9 @@ namespace RSBotManager
                 AllowDrop = true
             };
 
-            // Kontrolleri doğru sırada ekle (ters sıra: önce bottom, sonra fill, en son top)
-            leftPanel.Controls.Add(profileButtonsPanel);
+            // Z-order: fill last (lowest), then bottom, then top (highest = always on top)
             leftPanel.Controls.Add(treeProfiles);
+            leftPanel.Controls.Add(profileButtonsPanel);
             leftPanel.Controls.Add(lblProfiles);
 
             btnAddProfile = new Button
@@ -2371,6 +2372,7 @@ namespace RSBotManager
         }
 
         // Form controls
+        private SplitContainer mainSplitContainer = null!;
         private TextBox txtRSBotPath = null!;
         private TextBox txtDelay = null!;
         private TreeView treeProfiles = null!;

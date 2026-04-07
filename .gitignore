@@ -1,6 +1,34 @@
-.vs
-bin
-obj
+# Build output
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+*.DotSettings.user
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json
+project.assets.json
+
+# Common artifacts
+*.log
+*.tmp
 *.bak
+
+# Runtime data (project-specific)
 profiles.json
 running_bots.json
+settings.json
+language.json
+bots_state.json
+
+# APM working directory
+.apm/
+
+# APM agent prompts
+**/.github/prompts/

@@ -15,4 +15,21 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="rsmanager\.apm\Memory\Phase_01_Foundation_Infrastructure\Task_1_1_Add_Localization_Keys.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_01_Foundation_Infrastructure\Task_1_2_Create_ProfileGroup_Data_Model.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_01_Foundation_Infrastructure\Task_1_3_Create_Gitignore.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_02_Dark_Theme_System\Task_2_1_Create_ThemeManager_Static_Class.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_02_Dark_Theme_System\Task_2_2_Add_Theme_ComboBox_Persistence.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_02_Dark_Theme_System\Task_2_3_Apply_Theme_Main_Form.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_02_Dark_Theme_System\Task_2_4_Apply_Theme_Dialogs.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_03_Profile_Grouping_System\Task_3_1_Replace_ListBox_With_TreeView.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_03_Profile_Grouping_System\Task_3_2_Implement_Group_CRUD.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_03_Profile_Grouping_System\Task_3_3_Implement_Drag_And_Drop.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_03_Profile_Grouping_System\Task_3_4_Update_Profile_Persistence.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_03_Profile_Grouping_System\Task_3_5_Update_Start_Selected_For_Groups.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_03_Profile_Grouping_System\Task_3_6_Update_Selection_Logic_Button_States.md" />
+    <None Include="rsmanager\.apm\Memory\Phase_04_Integration_Polish\Task_4_1_Theme_Grouping_Integration_Build.md" />
+  </ItemGroup>
+
 </Project>

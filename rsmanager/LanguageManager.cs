@@ -494,6 +494,142 @@ namespace RSBotManager
                     { "Русский", "Профиль '{0}' обновлен." },
                     { "Deutsch", "Profil '{0}' aktualisiert." }
                 }
+            },
+
+            // Tema seçici
+            { "Theme", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Tema:" },
+                    { "English", "Theme:" },
+                    { "Русский", "Тема:" },
+                    { "Deutsch", "Thema:" }
+                }
+            },
+            { "ThemeLight", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Açık" },
+                    { "English", "Light" },
+                    { "Русский", "Светлая" },
+                    { "Deutsch", "Hell" }
+                }
+            },
+            { "ThemeDark", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Koyu" },
+                    { "English", "Dark" },
+                    { "Русский", "Тёмная" },
+                    { "Deutsch", "Dunkel" }
+                }
+            },
+            { "ThemeSystem", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Sistem" },
+                    { "English", "System" },
+                    { "Русский", "Системная" },
+                    { "Deutsch", "System" }
+                }
+            },
+
+            // Grup yönetimi
+            { "AddGroup", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Grup Ekle" },
+                    { "English", "Add Group" },
+                    { "Русский", "Добавить группу" },
+                    { "Deutsch", "Gruppe hinzufügen" }
+                }
+            },
+            { "RemoveGroup", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Grubu Kaldır" },
+                    { "English", "Remove Group" },
+                    { "Русский", "Удалить группу" },
+                    { "Deutsch", "Gruppe entfernen" }
+                }
+            },
+            { "GroupNameLabel", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Grup Adı:" },
+                    { "English", "Group Name:" },
+                    { "Русский", "Имя группы:" },
+                    { "Deutsch", "Gruppenname:" }
+                }
+            },
+            { "AddNewGroup", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Yeni Grup Ekle" },
+                    { "English", "Add New Group" },
+                    { "Русский", "Добавить новую группу" },
+                    { "Deutsch", "Neue Gruppe hinzufügen" }
+                }
+            },
+            { "EnterGroupName", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Lütfen bir grup adı girin." },
+                    { "English", "Please enter a group name." },
+                    { "Русский", "Пожалуйста, введите имя группы." },
+                    { "Deutsch", "Bitte geben Sie einen Gruppennamen ein." }
+                }
+            },
+            { "GroupAlreadyExists", new Dictionary<string, string>
+                {
+                    { "Türkçe", "'{0}' isimli grup zaten mevcut." },
+                    { "English", "Group '{0}' already exists." },
+                    { "Русский", "Группа '{0}' уже существует." },
+                    { "Deutsch", "Gruppe '{0}' existiert bereits." }
+                }
+            },
+
+            // Grup silme dialogu
+            { "DeleteGroup", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Grup Silme" },
+                    { "English", "Delete Group" },
+                    { "Русский", "Удалить группу" },
+                    { "Deutsch", "Gruppe löschen" }
+                }
+            },
+            { "ConfirmDeleteGroupWithProfiles", new Dictionary<string, string>
+                {
+                    { "Türkçe", "'{0}' grubunda profiller var. Ne yapmak istersiniz?" },
+                    { "English", "Group '{0}' contains profiles. What would you like to do?" },
+                    { "Русский", "Группа '{0}' содержит профили. Что вы хотите сделать?" },
+                    { "Deutsch", "Gruppe '{0}' enthält Profile. Was möchten Sie tun?" }
+                }
+            },
+            { "UngroupProfiles", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Profilleri Gruptan Çıkar" },
+                    { "English", "Ungroup Profiles" },
+                    { "Русский", "Разгруппировать профили" },
+                    { "Deutsch", "Profile aus Gruppe entfernen" }
+                }
+            },
+            { "DeleteWithGroup", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Grupla Birlikte Sil" },
+                    { "English", "Delete with Group" },
+                    { "Русский", "Удалить вместе с группой" },
+                    { "Deutsch", "Mit Gruppe löschen" }
+                }
+            },
+
+            // Grup işlem durumu
+            { "StartingGroup", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Grup başlatılıyor: {0} ({1}/{2})" },
+                    { "English", "Starting group: {0} ({1}/{2})" },
+                    { "Русский", "Запуск группы: {0} ({1}/{2})" },
+                    { "Deutsch", "Gruppe wird gestartet: {0} ({1}/{2})" }
+                }
+            },
+            { "GroupStarted", new Dictionary<string, string>
+                {
+                    { "Türkçe", "Grup başlatıldı!" },
+                    { "English", "Group started!" },
+                    { "Русский", "Группа запущена!" },
+                    { "Deutsch", "Gruppe gestartet!" }
+                }
             }
         };
         
